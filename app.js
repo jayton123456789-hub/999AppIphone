@@ -1,5 +1,5 @@
 const API_BASE = 'https://juicewrldapi.com/juicewrld';
-const STORAGE_KEY = 'wrld.rebuild.v3';
+const STORAGE_KEY = 'wrld.rebuild.v4';
 
 const state = {
   view: 'songs',
@@ -8,8 +8,10 @@ const state = {
   visibleTracks: [],
   currentIndex: -1,
   likes: {},
-  filters: { album: '' },
-  albums: []
+  filters: { album: '', search: '', category: '', era: '' },
+  albums: [],
+  categories: [],
+  eras: []
 };
 
 const el = {
@@ -18,6 +20,9 @@ const el = {
   countLabel: document.getElementById('countLabel'),
   subtitle: document.getElementById('subtitle'),
   albumFilter: document.getElementById('albumFilter'),
+  categoryFilter: document.getElementById('categoryFilter'),
+  eraFilter: document.getElementById('eraFilter'),
+  searchInput: document.getElementById('searchInput'),
   cover: document.getElementById('cover'),
   title: document.getElementById('title'),
   artist: document.getElementById('artist'),
@@ -31,7 +36,14 @@ const el = {
   shuffleBtn: document.getElementById('shuffleBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   audio: document.getElementById('audio'),
-  navButtons: [...document.querySelectorAll('.nav-btn')]
+  navButtons: [...document.querySelectorAll('.nav-btn')],
+  playerOverlay: document.getElementById('playerOverlay'),
+  closePlayerBtn: document.getElementById('closePlayerBtn'),
+  lyricsBtn: document.getElementById('lyricsBtn'),
+  lyricsOverlay: document.getElementById('lyricsOverlay'),
+  closeLyricsBtn: document.getElementById('closeLyricsBtn'),
+  lyricsText: document.getElementById('lyricsText'),
+  lyricsTitle: document.getElementById('lyricsTitle')
 };
 
 const safeJson = (value, fallback) => {
@@ -55,13 +67,15 @@ function parseLength(lengthText) {
 
 function mapSong(song) {
   return {
-    id: String(song.id || crypto.randomUUID()),
+    id: String(song.id || song.path || crypto.randomUUID()),
     title: song.name || song.title || 'Untitled',
     artist: song.credited_artists || 'Juice WRLD',
-    album: song.album?.name || song.album_name || song.album || 'Singles',
+    album: song.album?.name || song.album_name || song.era?.name || 'Singles',
     category: song.category || song.category_name || '',
+    era: song.era?.name || song.era_name || '',
     cover: absoluteUrl(song.cover_art_url || song.cover_art || song.image_url),
     path: song.path || '',
+    lyrics: song.lyrics || '',
     lengthSeconds: parseLength(song.length),
     bpm: Number(song.bpm || song.tempo || 92)
   };
@@ -77,8 +91,9 @@ async function fetchJson(path, params = {}) {
 
 function loadStorage() {
   const stored = safeJson(localStorage.getItem(STORAGE_KEY), {});
-  state.likes = stored.likes || {};
-  state.filters = { ...state.filters, ...(stored.filters || {}) };
+  const safeStored = stored && typeof stored === 'object' ? stored : {};
+  state.likes = safeStored.likes && typeof safeStored.likes === 'object' ? safeStored.likes : {};
+  state.filters = { ...state.filters, ...(safeStored.filters || {}) };
 }
 
 function saveStorage() {
@@ -104,10 +119,25 @@ function updateLikeButton(track) {
   el.likeBtn.classList.toggle('liked', liked);
 }
 
+function updateLyricsButton(track) {
+  const hasLyrics = !!track?.lyrics?.trim();
+  el.lyricsBtn.classList.toggle('hidden', !hasLyrics);
+}
+
 function setPlayIcon() {
   const paused = el.audio.paused;
   el.playBtn.textContent = paused ? '▶' : '⏸';
   el.cover.classList.toggle('spinning', !paused && !!el.audio.src);
+}
+
+function openPlayer() {
+  el.playerOverlay.classList.add('open');
+  el.playerOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function closePlayer() {
+  el.playerOverlay.classList.remove('open');
+  el.playerOverlay.setAttribute('aria-hidden', 'true');
 }
 
 function renderCurrentTrack() {
@@ -118,6 +148,7 @@ function renderCurrentTrack() {
     el.cover.removeAttribute('src');
     el.cover.classList.remove('spinning');
     updateLikeButton(null);
+    updateLyricsButton(null);
     return;
   }
 
@@ -126,6 +157,7 @@ function renderCurrentTrack() {
   el.cover.src = track.cover || 'icons/icon.svg';
   setCoverSpin(track);
   updateLikeButton(track);
+  updateLyricsButton(track);
 }
 
 function renderList() {
@@ -139,7 +171,7 @@ function renderList() {
         ? 'No playlist tracks available yet. Like songs to build one fast.'
         : state.view === 'radio'
           ? 'No radio songs loaded. Tap Refresh.'
-          : 'No songs match the selected album.';
+          : 'No songs match your filters.';
     el.trackList.innerHTML = `<p class="status">${msg}</p>`;
     return;
   }
@@ -161,6 +193,16 @@ function renderList() {
   });
 }
 
+async function hydrateTrackDetails(track) {
+  if (!track || !track.id || track.lyrics?.trim()) return;
+  const numericId = Number(track.id);
+  if (!Number.isFinite(numericId)) return;
+  const detail = await fetchJson(`/songs/${numericId}/`).catch(() => null);
+  if (!detail) return;
+  track.lyrics = detail.lyrics || '';
+  if (track.id === state.visibleTracks[state.currentIndex]?.id) updateLyricsButton(track);
+}
+
 function openTrack(index, autoplay = false) {
   if (index < 0 || index >= state.visibleTracks.length) return;
   state.currentIndex = index;
@@ -168,10 +210,12 @@ function openTrack(index, autoplay = false) {
 
   renderList();
   renderCurrentTrack();
+  openPlayer();
 
   if (!track.path) return;
   el.audio.src = `${API_BASE}/files/download/?path=${encodeURIComponent(track.path)}`;
   el.audio.load();
+  hydrateTrackDetails(track);
   if (autoplay) el.audio.play().catch(() => setPlayIcon());
 }
 
@@ -201,26 +245,35 @@ function shuffleQueue() {
   if (state.currentIndex >= 0) openTrack(0, false);
 }
 
-function refreshAlbumFilter() {
+function refreshFilterSelects() {
   el.albumFilter.innerHTML = '<option value="">All albums</option>';
-  state.albums.forEach((album) => {
-    el.albumFilter.add(new Option(album, album));
-  });
+  el.categoryFilter.innerHTML = '<option value="">All categories</option>';
+  el.eraFilter.innerHTML = '<option value="">All eras</option>';
+
+  state.albums.forEach((album) => el.albumFilter.add(new Option(album, album)));
+  state.categories.forEach((cat) => el.categoryFilter.add(new Option(cat.label, cat.value)));
+  state.eras.forEach((era) => el.eraFilter.add(new Option(era, era)));
+
   el.albumFilter.value = state.filters.album;
+  el.categoryFilter.value = state.filters.category;
+  el.eraFilter.value = state.filters.era;
+  el.searchInput.value = state.filters.search;
 }
 
 function buildSongsView() {
-  return state.tracks.filter((track) => !state.filters.album || track.album === state.filters.album);
-}
-
-function buildPlaylistsView() {
-  const liked = state.tracks.filter((track) => state.likes[track.id]);
-  return liked;
+  const term = state.filters.search.trim().toLowerCase();
+  return state.tracks.filter((track) => {
+    if (state.filters.album && track.album !== state.filters.album) return false;
+    if (state.filters.category && track.category !== state.filters.category) return false;
+    if (state.filters.era && track.era !== state.filters.era) return false;
+    if (!term) return true;
+    return [track.title, track.artist, track.album, track.lyrics].join(' ').toLowerCase().includes(term);
+  });
 }
 
 function refreshView() {
   if (state.view === 'songs') state.visibleTracks = buildSongsView();
-  if (state.view === 'playlists') state.visibleTracks = buildPlaylistsView();
+  if (state.view === 'playlists') state.visibleTracks = state.tracks.filter((track) => state.likes[track.id]);
   if (state.view === 'likes') state.visibleTracks = state.tracks.filter((track) => state.likes[track.id]);
   if (state.view === 'radio') state.visibleTracks = [...state.radioTracks];
 
@@ -236,25 +289,24 @@ function setView(view) {
   state.currentIndex = state.visibleTracks.length ? 0 : -1;
 
   el.listTitle.textContent = view[0].toUpperCase() + view.slice(1);
-  el.subtitle.textContent = view === 'songs' ? 'Songs' : `${el.listTitle.textContent} mode`;
-  el.albumFilter.closest('label').style.display = view === 'songs' ? 'grid' : 'none';
+  el.subtitle.textContent = view === 'songs' ? 'Browse and tap a song to open player' : `${el.listTitle.textContent} mode`;
+
+  const filterVisible = view === 'songs';
+  document.querySelector('.filters').style.display = filterVisible ? 'grid' : 'none';
 
   el.navButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
   refreshView();
 }
 
 async function loadRadio() {
-  const radioData = await fetchJson('/radio/random/').catch(() => ({}));
-  const list = Array.isArray(radioData?.results)
-    ? radioData.results
-    : Array.isArray(radioData)
-      ? radioData
-      : radioData?.song
-        ? [radioData.song]
-        : radioData?.track
-          ? [radioData.track]
-          : [];
-  state.radioTracks = list.map(mapSong);
+  const shots = await Promise.all(Array.from({ length: 12 }, () => fetchJson('/radio/random/').catch(() => null)));
+  const uniqueByPath = new Map();
+  shots.filter(Boolean).forEach((entry) => {
+    const base = entry.song || entry.track || entry;
+    const mapped = mapSong({ ...base, title: entry.title || base?.title, path: entry.path || base?.path });
+    if (mapped.path && !uniqueByPath.has(mapped.path)) uniqueByPath.set(mapped.path, mapped);
+  });
+  state.radioTracks = [...uniqueByPath.values()];
 }
 
 function bindEvents() {
@@ -269,15 +321,41 @@ function bindEvents() {
   el.likeBtn.addEventListener('click', toggleLike);
   el.shuffleBtn.addEventListener('click', shuffleQueue);
 
-  el.albumFilter.addEventListener('change', () => {
+  const onFilter = () => {
     state.filters.album = el.albumFilter.value;
+    state.filters.category = el.categoryFilter.value;
+    state.filters.era = el.eraFilter.value;
+    state.filters.search = el.searchInput.value;
     saveStorage();
     refreshView();
-  });
+  };
+
+  el.albumFilter.addEventListener('change', onFilter);
+  el.categoryFilter.addEventListener('change', onFilter);
+  el.eraFilter.addEventListener('change', onFilter);
+  el.searchInput.addEventListener('input', onFilter);
 
   el.refreshBtn.addEventListener('click', init);
   el.navButtons.forEach((button) => {
     button.addEventListener('click', () => setView(button.dataset.view));
+  });
+
+  el.closePlayerBtn.addEventListener('click', closePlayer);
+  el.playerOverlay.addEventListener('click', (event) => {
+    if (event.target === el.playerOverlay) closePlayer();
+  });
+
+  el.lyricsBtn.addEventListener('click', () => {
+    const track = state.visibleTracks[state.currentIndex];
+    if (!track?.lyrics?.trim()) return;
+    el.lyricsTitle.textContent = `${track.title} — Lyrics`;
+    el.lyricsText.textContent = track.lyrics;
+    el.lyricsOverlay.classList.add('open');
+  });
+
+  el.closeLyricsBtn.addEventListener('click', () => el.lyricsOverlay.classList.remove('open'));
+  el.lyricsOverlay.addEventListener('click', (event) => {
+    if (event.target === el.lyricsOverlay) el.lyricsOverlay.classList.remove('open');
   });
 
   el.audio.addEventListener('play', setPlayIcon);
@@ -304,6 +382,10 @@ function bindEvents() {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      el.lyricsOverlay.classList.remove('open');
+      closePlayer();
+    }
     if (event.key === ' ') {
       event.preventDefault();
       el.playBtn.click();
@@ -318,11 +400,18 @@ async function init() {
   try {
     loadStorage();
 
-    const songsRaw = await fetchJson('/songs/', { page_size: 120, page: 1 }).catch(() => ({ results: [] }));
-    state.tracks = (songsRaw.results || []).map(mapSong);
+    const [songsRaw, categoriesRaw, erasRaw] = await Promise.all([
+      fetchJson('/songs/', { page_size: 120, page: 1, searchall: state.filters.search }).catch(() => ({ results: [] })),
+      fetchJson('/categories/').catch(() => ({ categories: [] })),
+      fetchJson('/eras/').catch(() => ([]))
+    ]);
 
+    state.tracks = (songsRaw.results || []).map(mapSong);
+    state.categories = Array.isArray(categoriesRaw?.categories) ? categoriesRaw.categories : [];
+    const eraList = Array.isArray(erasRaw) ? erasRaw : Array.isArray(erasRaw?.results) ? erasRaw.results : [];
+    state.eras = eraList.map((era) => era.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
     state.albums = [...new Set(state.tracks.map((track) => track.album).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    refreshAlbumFilter();
+    refreshFilterSelects();
 
     await loadRadio();
     setView(state.view);
