@@ -1,0 +1,13 @@
+{
+  "name": "wrld-iphone-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static iPhone-first music PWA",
+  "scripts": {
+    "build": "echo 'No build step required for static assets'",
+    "start": "serve -s . -l ${PORT:-10000}"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  }
+}

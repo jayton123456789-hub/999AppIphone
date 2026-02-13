@@ -52,9 +52,10 @@ Open `http://localhost:4173`.
 
 ## Deploy to Render
 
-Static-host ready:
+This repo now includes a Node-compatible Render setup so it works even when deployed as a **Web Service**:
 
-- Root: repo root
-- Build command: none
-- Start command: none
-- Publish directory: `.`
+- `package.json` provides `npm install`, `npm run build`, and `npm run start`
+- `npm run start` serves the static app with `serve` on Render's assigned `PORT`
+- `render.yaml` defines build/start commands for Render blueprints
+
+If you prefer a Render Static Site, you can still deploy from the repo root with publish directory `.` and no build step.
