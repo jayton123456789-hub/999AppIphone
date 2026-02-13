@@ -1,127 +1,60 @@
-# 999AppIphone
+# WRLD — iPhone-First Music Galaxy PWA
 
-A concise developer README for consuming the **Juice WRLD API** documented in `JuiceWRLDAPIdocs.pdf`.
+WRLD is a mobile web music app that behaves like a native iPhone app: installable, fullscreen standalone, safe-area aware, animated, and gesture-first.
 
-## API Base URL
+## Major QA + reliability updates
+
+- Added a **no-email quick account** flow (name only) saved locally with lightweight browser fingerprint metadata.
+- Added profile reset/change controls in Settings.
+- Fixed interaction reliability: backdrop-tap to close sheets, explicit close button for player, mobile long-press like action.
+- Guarded empty-state actions and reduced duplicate fallback cover requests.
+- Kept immersive launch fade, 3D carousel depth, now-playing, likes, filters, and sections intact.
+
+## Experience highlights
+
+- Black launch fade-in for cinematic app start.
+- Galaxy environment with parallax star fields and mood-reactive tones.
+- Wrapped 3D depth carousel with inertia momentum.
+- Sections: songs, albums, playlists, radio, likes.
+- Immersive now-playing overlay with swipe and button controls.
+- Constellation-style liked songs summary.
+- Local persistence for profile, likes, playlists, settings, and cached covers.
+
+## API integration (Juice WRLD API)
+
+Base URL:
 
 ```txt
 https://juicewrldapi.com/juicewrld
 ```
 
-## What this API provides
+Used endpoints:
 
-The API is centered around Juice WRLD catalog data and includes:
+- `GET /songs/`
+- `GET /eras/`
+- `GET /categories/`
+- `GET /radio/random/`
+- `GET /files/download/?path=...`
 
-- Song catalog browsing with pagination/filter/search.
-- Song detail lookup by ID.
-- Aggregate stats by category and era.
-- Metadata lists (categories and eras).
-- Playable/audio-focused endpoints.
-- File browsing and downloading.
-- ZIP job creation for bulk file exports.
-- Shareable playlist creation/retrieval.
-- Random radio song discovery.
+Cover-art fallback chain:
 
-## Core endpoints
+1. API image fields (`cover_art_url`, `cover_art`, `image_url`)
+2. iTunes Search API lookup
+3. Generated SVG art
 
-| Feature | Method | Endpoint |
-|---|---|---|
-| List songs | `GET` | `/songs/` |
-| Song details | `GET` | `/songs/{id}/` |
-| Global statistics | `GET` | `/stats/` |
-| Categories | `GET` | `/categories/` |
-| Eras | `GET` | `/eras/` |
-| Random radio song | `GET` | `/radio/random/` |
-| Browse files | `GET` | `/files/browse/` |
-| File info | `GET` | `/files/info/` |
-| Cover art | `GET` | `/files/cover/` |
-| Download/stream file | `GET` | `/files/download/` |
-| Create ZIP job | `POST` | `/files/zip/create/` |
-| ZIP job status | `GET` | `/files/zip/status/{job_id}/` |
-| ZIP job download | `GET` | `/files/zip/download/{job_id}/` |
-| Create shared playlist | `POST` | `/shares/create/` |
-| Get shared playlist | `GET` | `/shares/{token}/` |
-
-## Songs API quick usage
-
-### List songs
+## Run locally
 
 ```bash
-curl "https://juicewrldapi.com/juicewrld/songs/?page=1&page_size=20"
+python -m http.server 4173
 ```
 
-### Common query params
+Open `http://localhost:4173`.
 
-- `page` (optional)
-- `page_size` (optional, default 20)
-- `category` (`released`, `unreleased`, `unsurfaced`, `recording_session`)
-- `era`
-- `search` (name, credited artists, track titles; normalization aware)
-- `searchall` (broader search incl. producers)
-- `lyrics` (lyrics text search)
-- `file_names_array=true|1|yes` (serialize file names as array)
+## Deploy to Render
 
-### Example filtered search
+Static-host ready:
 
-```bash
-curl "https://juicewrldapi.com/juicewrld/songs/?category=released&search=dont go&page=1&page_size=50"
-```
-
-### Song detail by ID
-
-```bash
-curl "https://juicewrldapi.com/juicewrld/songs/1/"
-```
-
-## File browsing and streaming
-
-### Browse playable files
-
-```bash
-curl "https://juicewrldapi.com/juicewrld/files/browse/?path=Compilation&search=.mp3"
-```
-
-### Download/stream a file
-
-```bash
-curl "https://juicewrldapi.com/juicewrld/files/download/?path={file_path}" -o song.mp3
-```
-
-### Stream with HTTP range (seeking support)
-
-```bash
-curl -H "Range: bytes=0-1048575" \
-  "https://juicewrldapi.com/juicewrld/files/download/?path={file_path}" \
-  -o song_part.mp3
-```
-
-## Useful metadata endpoints
-
-```bash
-curl "https://juicewrldapi.com/juicewrld/stats/"
-curl "https://juicewrldapi.com/juicewrld/categories/"
-curl "https://juicewrldapi.com/juicewrld/eras/"
-curl "https://juicewrldapi.com/juicewrld/radio/random/"
-```
-
-## Python example
-
-```python
-import requests
-
-base = "https://juicewrldapi.com/juicewrld"
-resp = requests.get(
-    f"{base}/songs/",
-    params={"category": "released", "search": "dont go", "page": 1}
-)
-resp.raise_for_status()
-data = resp.json()
-print("total:", data.get("count"))
-for song in data.get("results", []):
-    print(song.get("name"))
-```
-
-## Notes
-
-- This README was assembled from the included API PDF (`JuiceWRLDAPIdocs.pdf`).
-- If endpoints evolve, treat this as a quick reference and verify against your latest upstream API docs.
+- Root: repo root
+- Build command: none
+- Start command: none
+- Publish directory: `.`

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05050d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WRLD" />
+  <title>WRLD — Music Galaxy</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="launchFade" class="launch-fade"></div>
+  <div class="galaxy" aria-hidden="true"></div>
+  <div class="stars stars-back" aria-hidden="true"></div>
+  <div class="stars stars-front" aria-hidden="true"></div>
+
+  <header class="top-bar glass">
+    <div>
+      <h1>WRLD</h1>
+      <p id="profileBadge" class="badge">Guest</p>
+    </div>
+    <div>
+      <button id="openFilters" class="glass-btn" aria-label="Filters">☄️</button>
+      <button id="openSettings" class="glass-btn" aria-label="Settings">⚙️</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="section-head">
+      <h2 id="sectionTitle">Explore</h2>
+      <p id="sectionSubtitle">Drift through your universe</p>
+    </section>
+
+    <section id="carousel" class="carousel" aria-live="polite"></section>
+    <section id="constellation" class="constellation glass hidden"></section>
+
+    <section id="nowPlaying" class="now-playing hidden" aria-label="Now playing">
+      <div id="playerGlow" class="player-glow"></div>
+      <img id="playerCover" class="player-cover" alt="Album cover" loading="lazy" />
+      <div class="player-meta">
+        <h3 id="playerTitle"></h3>
+        <p id="playerArtist"></p>
+      </div>
+      <div class="player-actions">
+        <button id="prevTrack" class="glass-btn">⏮️</button>
+        <button id="playPause" class="glass-btn">⏯️</button>
+        <button id="nextTrack" class="glass-btn">⏭️</button>
+        <button id="likeTrack" class="glass-btn">💜</button>
+        <button id="closePlayer" class="glass-btn">⬇️</button>
+      </div>
+      <audio id="audioEl" preload="none" crossorigin="anonymous"></audio>
+      <div id="lyrics" class="lyrics"></div>
+    </section>
+  </main>
+
+  <aside id="profileSheet" class="sheet hidden" aria-label="Profile setup">
+    <div class="sheet-card glass">
+      <h3>Start your WRLD</h3>
+      <p class="helper">No email. Just a name.</p>
+      <label>Name<input id="profileName" maxlength="24" placeholder="Enter a display name" /></label>
+      <button id="saveProfile" class="glass-btn">Enter Galaxy</button>
+    </div>
+  </aside>
+
+  <aside id="filterSheet" class="sheet hidden" aria-label="Filters">
+    <div class="sheet-card glass">
+      <h3>Tune the universe</h3>
+      <label>Mood<select id="moodFilter"><option value="">Any</option><option>Melancholy</option><option>Hype</option><option>Dreamy</option></select></label>
+      <label>Era<select id="eraFilter"><option value="">Any</option></select></label>
+      <label>Category<select id="categoryFilter"><option value="">Any</option></select></label>
+      <button id="applyFilters" class="glass-btn">Apply</button>
+    </div>
+  </aside>
+
+  <aside id="settingsSheet" class="sheet hidden" aria-label="Settings">
+    <div class="sheet-card glass">
+      <h3>Settings</h3>
+      <label><input id="showLyrics" type="checkbox" checked /> Show lyrics automatically</label>
+      <label><input id="motionBoost" type="checkbox" checked /> Cinematic motion</label>
+      <button id="resetProfile" class="glass-btn">Change profile name</button>
+      <button id="clearState" class="glass-btn">Reset likes/playlists</button>
+    </div>
+  </aside>
+
+  <nav class="bottom-nav glass" aria-label="Main">
+    <button data-section="songs" class="active">🎵</button>
+    <button data-section="albums">💿</button>
+    <button data-section="playlists">⭐</button>
+    <button data-section="radio">📻</button>
+    <button data-section="likes">✨</button>
+  </nav>
+</body>
+</html>
