@@ -12,7 +12,13 @@ const state = {
   cachedCovers: {},
   pendingCoverTerms: new Set(),
   settings: { showLyrics: true, motionBoost: true },
-  filters: { mood: '', era: '', category: '' }
+  filters: { mood: '', era: '', category: '' },
+  filterOptions: { eras: [], categories: [] },
+  autoRandomized: false,
+  shifting: false,
+  swipeQueue: [],
+  swipeDeck: [],
+  swipeIndex: 0
 };
 
 const el = {
@@ -40,16 +46,27 @@ const el = {
   filterSheet: document.getElementById('filterSheet'),
   settingsSheet: document.getElementById('settingsSheet'),
   showLyrics: document.getElementById('showLyrics'),
-  motionBoost: document.getElementById('motionBoost')
+  motionBoost: document.getElementById('motionBoost'),
+  swipeMode: document.getElementById('swipeMode'),
+  swipeCard: document.getElementById('swipeCard'),
+  swipeCover: document.getElementById('swipeCover'),
+  swipeTitle: document.getElementById('swipeTitle'),
+  swipeArtist: document.getElementById('swipeArtist'),
+  swipeNo: document.getElementById('swipeNo'),
+  swipeYes: document.getElementById('swipeYes'),
+  previewSeek: document.getElementById('previewSeek'),
+  previewTime: document.getElementById('previewTime')
 };
 
 const safeJson = (s, fallback) => { try { return JSON.parse(s); } catch { return fallback; } };
+const asObject = (value) => (value && typeof value === 'object' ? value : {});
 const persist = () => localStorage.setItem(STORAGE_KEY, JSON.stringify({
   profile: state.profile,
   likes: state.likes,
   playlists: state.playlists,
   cachedCovers: state.cachedCovers,
-  settings: state.settings
+  settings: state.settings,
+  swipeQueue: state.swipeQueue
 }));
 
 const deviceFingerprint = () => `${navigator.userAgent}|${navigator.platform}|${navigator.language}`;
@@ -62,24 +79,66 @@ const fetchJson = async (path, params = {}) => {
   return res.json();
 };
 
+const shuffle = (list) => [...list].sort(() => Math.random() - 0.5);
+const uniqueByTitle = (list) => [...new Map(list.map((x) => [String(x.title).toLowerCase(), x])).values()];
+const pickRandom = (list) => (list.length ? list[Math.floor(Math.random() * list.length)] : '');
+
+function applyAutoRandomFilters() {
+  if (state.autoRandomized) return;
+  const moods = ['Melancholy', 'Hype', 'Dreamy', ''];
+  state.filters = {
+    mood: pickRandom(moods),
+    era: pickRandom(state.filterOptions.eras.map((x) => x.name).filter(Boolean)),
+    category: pickRandom(state.filterOptions.categories.map((x) => x.value).filter(Boolean))
+  };
+  state.autoRandomized = true;
+  el.moodFilter.value = state.filters.mood;
+  el.eraFilter.value = state.filters.era;
+  el.categoryFilter.value = state.filters.category;
+  setMood(state.filters.mood);
+}
+
+async function getRandomSong() {
+  const data = await fetchJson('/radio/random/').catch(() => null);
+  const song = data?.song || data;
+  return song ? mapSong(song) : null;
+}
+
+async function getUniqueRandomSong(excludedIds, excludedTitles) {
+  for (let i = 0; i < 6; i += 1) {
+    const pick = await getRandomSong();
+    if (pick && !excludedIds.has(pick.id) && !excludedTitles.has(String(pick.title).toLowerCase())) return pick;
+  }
+  return null;
+}
+
 async function bootstrap() {
-  hydrate();
-  bindUI();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-  await Promise.all([loadFilterMetadata(), loadSection('songs')]);
-  animateBackground();
-  updateProfileBadge();
-  maybeShowProfileSheet();
-  gsap.to(el.launchFade, { opacity: 0, duration: 1.1, onComplete: () => el.launchFade.remove() });
+  window.setTimeout(() => el.launchFade?.remove(), 2800);
+  try {
+    hydrate();
+    bindUI();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    await loadFilterMetadata();
+    applyAutoRandomFilters();
+    await loadSection('songs');
+    animateBackground();
+    updateProfileBadge();
+    maybeShowProfileSheet();
+    gsap.to(el.launchFade, { opacity: 0, duration: 1.1, onComplete: () => el.launchFade?.remove() });
+  } catch (error) {
+    console.error('Bootstrap failed', error);
+    el.launchFade?.remove();
+  }
 }
 
 function hydrate() {
-  const stored = safeJson(localStorage.getItem(STORAGE_KEY), {});
+  const stored = asObject(safeJson(localStorage.getItem(STORAGE_KEY), {}));
   state.profile = stored.profile || null;
   Object.assign(state.likes, stored.likes || {});
   Object.assign(state.playlists, stored.playlists || {});
   Object.assign(state.cachedCovers, stored.cachedCovers || {});
   Object.assign(state.settings, stored.settings || {});
+  state.swipeQueue = Array.isArray(stored.swipeQueue) ? stored.swipeQueue : [];
   el.showLyrics.checked = !!state.settings.showLyrics;
   el.motionBoost.checked = !!state.settings.motionBoost;
 }
@@ -106,12 +165,16 @@ function saveProfile() {
 }
 
 async function loadFilterMetadata() {
-  const [eras, categories] = await Promise.all([
+  const [erasRaw, categoriesRaw] = await Promise.all([
     fetchJson('/eras/').catch(() => []),
     fetchJson('/categories/').catch(() => ({ categories: [] }))
   ]);
-  eras.slice(0, 60).forEach((era) => el.eraFilter.add(new Option(era.name, era.name)));
-  (categories.categories || []).forEach((c) => el.categoryFilter.add(new Option(c.label, c.value)));
+  const eras = Array.isArray(erasRaw) ? erasRaw : (erasRaw?.results || []);
+  const categories = Array.isArray(categoriesRaw?.categories) ? categoriesRaw.categories : [];
+  state.filterOptions.eras = eras;
+  state.filterOptions.categories = categories;
+  eras.slice(0, 60).forEach((era) => era?.name && el.eraFilter.add(new Option(era.name, era.name)));
+  categories.forEach((c) => c?.label && c?.value && el.categoryFilter.add(new Option(c.label, c.value)));
 }
 
 async function loadSection(section) {
@@ -119,7 +182,14 @@ async function loadSection(section) {
   state.index = 0;
   let items = [];
 
-  if (section === 'radio') {
+  if (section === 'swipe') {
+    const data = await fetchJson('/songs/', { page: 1, page_size: 30 }).catch(() => ({ results: [] }));
+    items = uniqueByTitle(shuffle((data.results || []).map(mapSong))).slice(0, 24);
+    state.swipeDeck = items;
+    state.swipeIndex = 0;
+    el.sectionTitle.textContent = 'Swipe Queue';
+    el.sectionSubtitle.textContent = 'Swipe left to skip, right to queue';
+  } else if (section === 'radio') {
     const randoms = await Promise.all(Array.from({ length: 8 }, () => fetchJson('/radio/random/').catch(() => null)));
     items = randoms.filter(Boolean).map((r) => mapSong(r.song || r));
     el.sectionTitle.textContent = 'Radio Eras';
@@ -136,14 +206,30 @@ async function loadSection(section) {
       category: state.filters.category
     }).catch(() => ({ results: [] }));
 
-    items = (data.results || []).map(mapSong);
+    items = uniqueByTitle(shuffle((data.results || []).map(mapSong)));
     if (section === 'albums') items = groupByEra(items);
     if (section === 'playlists') items = asPlaylists(items);
     el.sectionTitle.textContent = section[0].toUpperCase() + section.slice(1);
     el.sectionSubtitle.textContent = state.filters.era || 'Drift through your universe';
   }
 
-  state.items = items.slice(0, 14);
+  if (!items.length && (section === 'songs' || section === 'radio')) {
+    const fallbackRandom = await Promise.all(Array.from({ length: 14 }, () => getRandomSong()));
+    items = fallbackRandom.filter(Boolean);
+    el.sectionSubtitle.textContent = 'Random orbit sync online';
+  }
+
+  if (section === 'swipe') {
+    el.carousel.classList.add('hidden');
+    el.swipeMode.classList.remove('hidden');
+    renderSwipeCard();
+    renderConstellation();
+    return;
+  }
+
+  el.carousel.classList.remove('hidden');
+  el.swipeMode.classList.add('hidden');
+  state.items = uniqueByTitle(shuffle(items)).slice(0, 14);
   renderCarousel();
   renderConstellation();
 }
@@ -224,38 +310,14 @@ function renderCarousel() {
     card.oncontextmenu = (e) => { e.preventDefault(); toggleLike(item); };
     el.carousel.appendChild(card);
   });
-  layoutCards();
+  // native horizontal scroll carousel
 }
 
-function layoutCards() {
-  [...el.carousel.children].forEach((card, i) => {
-    const count = state.items.length;
-    const raw = ((i - state.index + count + count / 2) % count) - count / 2;
-    gsap.to(card, {
-      xPercent: raw * 72,
-      yPercent: -50,
-      left: '50%',
-      top: '50%',
-      z: 210 - Math.abs(raw) * 74,
-      rotateY: raw * -16,
-      scale: 1 - Math.min(Math.abs(raw) * 0.11, 0.58),
-      opacity: 1 - Math.min(Math.abs(raw) * 0.16, 0.76),
-      filter: `blur(${Math.min(Math.abs(raw) * 1.4, 6)}px)`,
-      zIndex: 100 - Math.floor(Math.abs(raw) * 10),
-      duration: state.settings.motionBoost ? 0.56 : 0.22,
-      ease: 'power3.out'
-    });
-    card.style.boxShadow = Math.abs(raw) < 0.2 ? '0 0 40px #8b6dff9c' : '0 16px 36px #0009';
-  });
-}
+function layoutCards() {}
 
-function shift(step) {
-  const len = state.items.length;
-  if (!len) return;
-  state.index = (state.index + step + len) % len;
-  layoutCards();
-  gsap.fromTo(el.carousel, { rotateZ: step * 1.1 }, { rotateZ: 0, duration: 0.5, ease: 'sine.out' });
-}
+
+async function shift() {}
+
 
 function openPlayerByIndex(i) {
   if (!state.items.length) return;
@@ -265,7 +327,7 @@ function openPlayerByIndex(i) {
   el.playerCover.src = item.cover;
   el.playerTitle.textContent = item.title;
   el.playerArtist.textContent = item.artist;
-  el.likeTrack.textContent = state.likes[item.id] ? '💖' : '💜';
+  el.likeTrack.textContent = state.likes[item.id] ? 'Liked' : 'Like';
   const hue = (String(item.id).length * 87) % 360;
   el.playerGlow.style.background = `radial-gradient(circle, hsl(${hue} 80% 60%) 0%, transparent 70%)`;
   el.lyrics.innerHTML = '';
@@ -273,9 +335,10 @@ function openPlayerByIndex(i) {
   if (state.settings.showLyrics && item.lyrics) showLyrics(item.lyrics);
   if (item.path) {
     el.audio.src = `${API_BASE}/files/download/?path=${encodeURIComponent(item.path)}`;
-    el.audio.play().catch(() => {});
+    el.audio.play().then(() => { el.playPause.textContent = 'Pause'; }).catch(() => { el.playPause.textContent = 'Play'; });
   } else {
     el.audio.pause();
+    el.playPause.textContent = 'Play';
     el.audio.removeAttribute('src');
   }
 }
@@ -296,7 +359,7 @@ function toggleLike(item) {
   else state.likes[item.id] = item;
   persist();
   renderConstellation();
-  if (!el.nowPlaying.classList.contains('hidden')) el.likeTrack.textContent = state.likes[item.id] ? '💖' : '💜';
+  if (!el.nowPlaying.classList.contains('hidden')) el.likeTrack.textContent = state.likes[item.id] ? 'Liked' : 'Like';
 }
 
 function renderConstellation() {
@@ -306,43 +369,88 @@ function renderConstellation() {
   el.constellation.textContent = `Constellation: ${liked.slice(0, 5).map((x) => x.title).join(' • ')}${liked.length > 5 ? ' …' : ''}`;
 }
 
+
+function formatClock(sec) {
+  if (!Number.isFinite(sec)) return '--:--';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function renderSwipeCard() {
+  const item = state.swipeDeck[state.swipeIndex];
+  if (!item) {
+    el.swipeTitle.textContent = 'No more songs';
+    el.swipeArtist.textContent = `Queued ${state.swipeQueue.length} songs`;
+    el.swipeCover.src = 'icons/icon.svg';
+    el.previewSeek.value = 0;
+    el.previewTime.textContent = '0:00 / 0:00';
+    el.audio.pause();
+    return;
+  }
+
+  el.swipeCover.src = item.cover;
+  el.swipeTitle.textContent = item.title;
+  el.swipeArtist.textContent = item.artist;
+
+  if (item.path) {
+    el.audio.src = `${API_BASE}/files/download/?path=${encodeURIComponent(item.path)}`;
+    const startAt = 45;
+    const onMeta = () => {
+      const duration = Number.isFinite(el.audio.duration) ? el.audio.duration : 0;
+      el.audio.currentTime = Math.min(startAt, Math.max(duration - 5, 0));
+      el.previewSeek.max = String(Math.max(duration, 1));
+      el.previewSeek.value = String(el.audio.currentTime);
+      el.previewTime.textContent = `${formatClock(el.audio.currentTime)} / ${formatClock(duration)}`;
+      el.audio.play().catch(() => {});
+      el.audio.removeEventListener('loadedmetadata', onMeta);
+    };
+    el.audio.addEventListener('loadedmetadata', onMeta);
+  }
+}
+
+function swipeDecision(accepted) {
+  const item = state.swipeDeck[state.swipeIndex];
+  if (!item) return;
+  if (accepted) {
+    state.swipeQueue.push(item);
+    state.playlists.queue = state.swipeQueue;
+  }
+  state.swipeIndex += 1;
+  persist();
+  renderSwipeCard();
+}
+
 function closeSheetsOnBackdrop(sheet, event) {
   if (event.target === sheet) sheet.classList.add('hidden');
 }
 
 function bindUI() {
-  let sx = 0; let sy = 0; let lastX = 0; let lastT = 0; let vx = 0;
-
   el.saveProfile.addEventListener('click', saveProfile);
   el.profileName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProfile(); });
 
-  const onStart = (x, y) => { sx = lastX = x; sy = y; lastT = performance.now(); vx = 0; };
-  const onMove = (x, y) => {
-    const now = performance.now();
-    const dx = x - sx;
-    const dy = y - sy;
-    vx = (x - lastX) / Math.max(now - lastT, 1);
-    lastX = x;
-    lastT = now;
-
-    if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy)) {
-      shift(dx < 0 ? 1 : -1);
-      sx = x;
+  el.swipeNo?.addEventListener('click', () => swipeDecision(false));
+  el.swipeYes?.addEventListener('click', () => swipeDecision(true));
+  el.previewSeek?.addEventListener('input', () => {
+    const next = Number(el.previewSeek.value || 0);
+    if (Number.isFinite(next)) {
+      el.audio.currentTime = next;
+      el.previewTime.textContent = `${formatClock(el.audio.currentTime)} / ${formatClock(el.audio.duration)}`;
     }
-    if (Math.abs(dy) > 95 && Math.abs(dy) > Math.abs(dx)) {
-      cycleSection(dy < 0 ? 1 : -1);
-      sy = y;
-    }
-  };
-  const onEnd = () => {
-    const steps = Math.min(4, Math.floor(Math.abs(vx) * 12));
-    const dir = vx < 0 ? 1 : -1;
-    for (let i = 0; i < steps; i += 1) setTimeout(() => shift(dir), i * 70);
-  };
+  });
+  el.audio.addEventListener('timeupdate', () => {
+    if (state.section !== 'swipe') return;
+    el.previewSeek.value = String(el.audio.currentTime || 0);
+    el.previewTime.textContent = `${formatClock(el.audio.currentTime)} / ${formatClock(el.audio.duration)}`;
+  });
 
-  el.carousel.addEventListener('touchstart', (e) => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-  el.carousel.addEventListener('touchmove', (e) => onMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-  el.carousel.addEventListener('touchend', onEnd, { passive: true });
+  let swipeStartX = 0;
+  el.swipeCard?.addEventListener('touchstart', (e) => { swipeStartX = e.touches[0].clientX; }, { passive: true });
+  el.swipeCard?.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - swipeStartX;
+    if (dx > 70) swipeDecision(true);
+    if (dx < -70) swipeDecision(false);
+  }, { passive: true });
 
   document.querySelectorAll('.bottom-nav button').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -381,6 +489,8 @@ function bindUI() {
   el.showLyrics.addEventListener('change', () => { state.settings.showLyrics = el.showLyrics.checked; persist(); });
   el.motionBoost.addEventListener('change', () => { state.settings.motionBoost = el.motionBoost.checked; persist(); });
   el.playPause.addEventListener('click', () => (el.audio.paused ? el.audio.play().catch(() => {}) : el.audio.pause()));
+  el.audio.addEventListener('play', () => { el.playPause.textContent = 'Pause'; });
+  el.audio.addEventListener('pause', () => { el.playPause.textContent = 'Play'; });
   document.getElementById('prevTrack').addEventListener('click', () => navigateTrack(-1));
   document.getElementById('nextTrack').addEventListener('click', () => navigateTrack(1));
   el.likeTrack.addEventListener('click', () => toggleLike(state.items[state.playingIndex]));
@@ -406,7 +516,7 @@ function navigateTrack(dir) {
 }
 
 function cycleSection(dir) {
-  const sections = ['songs', 'albums', 'playlists', 'radio', 'likes'];
+  const sections = ['songs', 'albums', 'playlists', 'swipe', 'radio', 'likes'];
   const next = (sections.indexOf(state.section) + dir + sections.length) % sections.length;
   document.querySelector(`.bottom-nav button[data-section='${sections[next]}']`)?.click();
 }
@@ -421,9 +531,6 @@ function setMood(mood) {
   document.querySelector('.galaxy').style.background = `radial-gradient(circle at 20% 20%, ${a} 0%, transparent 35%),radial-gradient(circle at 80% 60%, ${b} 0%, transparent 35%),radial-gradient(circle at 40% 85%, #1b2f69 0%, transparent 28%),linear-gradient(170deg,#05050d,#091224)`;
 }
 
-function animateBackground() {
-  gsap.to('.stars-front', { y: -30, duration: 9, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-  gsap.to('.stars-back', { y: -16, duration: 16, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-}
+function animateBackground() {}
 
 bootstrap();

@@ -27,8 +27,8 @@
       <p id="profileBadge" class="badge">Guest</p>
     </div>
     <div>
-      <button id="openFilters" class="glass-btn" aria-label="Filters">☄️</button>
-      <button id="openSettings" class="glass-btn" aria-label="Settings">⚙️</button>
+      <button id="openFilters" class="glass-btn" aria-label="Filters">Filter</button>
+      <button id="openSettings" class="glass-btn" aria-label="Settings">Settings</button>
     </div>
   </header>
 
@@ -39,6 +39,26 @@
     </section>
 
     <section id="carousel" class="carousel" aria-live="polite"></section>
+
+    <section id="swipeMode" class="swipe-mode hidden" aria-label="Swipe songs">
+      <article id="swipeCard" class="swipe-card">
+        <img id="swipeCover" alt="Swipe cover" loading="lazy" />
+        <div class="swipe-meta">
+          <h3 id="swipeTitle"></h3>
+          <p id="swipeArtist"></p>
+        </div>
+      </article>
+      <div class="swipe-actions">
+        <button id="swipeNo" class="glass-btn">Skip</button>
+        <button id="swipeYes" class="glass-btn">Queue</button>
+      </div>
+      <div class="preview-controls glass">
+        <label for="previewSeek">Preview</label>
+        <input id="previewSeek" type="range" min="0" max="100" value="0" />
+        <p id="previewTime">0:45 / --:--</p>
+      </div>
+    </section>
+
     <section id="constellation" class="constellation glass hidden"></section>
 
     <section id="nowPlaying" class="now-playing hidden" aria-label="Now playing">
@@ -49,11 +69,11 @@
         <p id="playerArtist"></p>
       </div>
       <div class="player-actions">
-        <button id="prevTrack" class="glass-btn">⏮️</button>
-        <button id="playPause" class="glass-btn">⏯️</button>
-        <button id="nextTrack" class="glass-btn">⏭️</button>
-        <button id="likeTrack" class="glass-btn">💜</button>
-        <button id="closePlayer" class="glass-btn">⬇️</button>
+        <button id="prevTrack" class="glass-btn" aria-label="Previous track">Prev</button>
+        <button id="playPause" class="glass-btn" aria-label="Play or pause">Play</button>
+        <button id="nextTrack" class="glass-btn" aria-label="Next track">Next</button>
+        <button id="likeTrack" class="glass-btn" aria-label="Like track">Like</button>
+        <button id="closePlayer" class="glass-btn" aria-label="Close player">Close</button>
       </div>
       <audio id="audioEl" preload="none" crossorigin="anonymous"></audio>
       <div id="lyrics" class="lyrics"></div>
@@ -90,11 +110,12 @@
   </aside>
 
   <nav class="bottom-nav glass" aria-label="Main">
-    <button data-section="songs" class="active">🎵</button>
-    <button data-section="albums">💿</button>
-    <button data-section="playlists">⭐</button>
-    <button data-section="radio">📻</button>
-    <button data-section="likes">✨</button>
+    <button data-section="songs" class="active">Songs</button>
+    <button data-section="albums">Albums</button>
+    <button data-section="playlists">Playlists</button>
+    <button data-section="swipe">Swipe</button>
+    <button data-section="radio">Radio</button>
+    <button data-section="likes">Likes</button>
   </nav>
 </body>
 </html>
