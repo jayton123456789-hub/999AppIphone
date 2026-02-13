@@ -20,29 +20,22 @@
   <header class="topbar panel">
     <div>
       <h1>WRLD</h1>
-      <p id="subtitle">Smoother playback. Better design. Same catalog.</p>
+      <p id="subtitle">Songs</p>
     </div>
-    <div class="topbar-actions">
-      <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
-      <button id="lyricsBtn" class="btn" type="button">Lyrics</button>
-    </div>
+    <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
   </header>
 
   <main class="shell">
     <section class="library panel">
       <div class="section-title">
-        <h2>Queue</h2>
+        <h2 id="listTitle">Songs</h2>
         <p id="countLabel">0 tracks</p>
       </div>
 
       <div class="filters">
-        <label>Era
-          <select id="eraFilter"><option value="">All eras</option></select>
+        <label>Album
+          <select id="albumFilter"><option value="">All albums</option></select>
         </label>
-        <label>Category
-          <select id="categoryFilter"><option value="">All categories</option></select>
-        </label>
-        <button id="clearFilters" class="btn ghost" type="button">Clear</button>
       </div>
 
       <div id="trackList" class="track-list" aria-live="polite"></div>
@@ -61,32 +54,22 @@
       </div>
 
       <div class="controls" role="group" aria-label="Playback controls">
+        <button id="shuffleBtn" class="icon-btn subtle" type="button" aria-label="Shuffle queue">⤮</button>
         <button id="prevBtn" class="icon-btn" type="button" aria-label="Previous track">⏮</button>
         <button id="playBtn" class="icon-btn play" type="button" aria-label="Play or pause">▶</button>
         <button id="nextBtn" class="icon-btn" type="button" aria-label="Next track">⏭</button>
-      </div>
-
-      <div class="extras">
-        <button id="likeBtn" class="btn" type="button">♡ Like</button>
-        <button id="shuffleBtn" class="btn ghost" type="button">Shuffle queue</button>
+        <button id="likeBtn" class="icon-btn subtle" type="button" aria-label="Like track">♡</button>
       </div>
 
       <audio id="audio" preload="none" crossorigin="anonymous"></audio>
     </section>
   </main>
 
-  <aside id="lyricsSheet" class="lyrics-sheet hidden" aria-label="Lyrics view">
-    <div class="lyrics-panel panel">
-      <div class="lyrics-head">
-        <h3>Lyrics</h3>
-        <button id="closeLyrics" class="btn ghost" type="button">Close</button>
-      </div>
-      <p id="lyricsTrack" class="lyrics-track"></p>
-      <div id="lyricsLines" class="lyrics-lines"></div>
-    </div>
-  </aside>
-
-  <div id="leftTap" class="edge-tap left" title="Previous track" aria-hidden="true"></div>
-  <div id="rightTap" class="edge-tap right" title="Next track" aria-hidden="true"></div>
+  <nav class="bottom-nav panel" aria-label="Sections">
+    <button class="nav-btn active" data-view="songs" type="button">Songs</button>
+    <button class="nav-btn" data-view="playlists" type="button">Playlists</button>
+    <button class="nav-btn" data-view="radio" type="button">Radio</button>
+    <button class="nav-btn" data-view="likes" type="button">Likes</button>
+  </nav>
 </body>
 </html>
