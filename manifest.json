@@ -1,0 +1,17 @@
+{
+  "name": "WRLD Galaxy Music",
+  "short_name": "WRLD",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05050d",
+  "theme_color": "#080812",
+  "description": "Immersive galaxy-scale Juice WRLD music experience.",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
