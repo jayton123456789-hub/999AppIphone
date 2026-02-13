@@ -3,119 +3,90 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#05050d" />
+  <meta name="theme-color" content="#090b16" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WRLD" />
-  <title>WRLD — Music Galaxy</title>
+  <title>WRLD — Rebuilt Music App</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon.svg" />
   <link rel="stylesheet" href="styles.css" />
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
-  <div id="launchFade" class="launch-fade"></div>
-  <div class="galaxy" aria-hidden="true"></div>
-  <div class="stars stars-back" aria-hidden="true"></div>
-  <div class="stars stars-front" aria-hidden="true"></div>
+  <div class="ambient" aria-hidden="true"></div>
 
-  <header class="top-bar glass">
+  <header class="topbar panel">
     <div>
       <h1>WRLD</h1>
-      <p id="profileBadge" class="badge">Guest</p>
+      <p id="subtitle">Smoother playback. Better design. Same catalog.</p>
     </div>
-    <div>
-      <button id="openFilters" class="glass-btn" aria-label="Filters">Filter</button>
-      <button id="openSettings" class="glass-btn" aria-label="Settings">Settings</button>
+    <div class="topbar-actions">
+      <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
+      <button id="lyricsBtn" class="btn" type="button">Lyrics</button>
     </div>
   </header>
 
-  <main class="app">
-    <section class="section-head">
-      <h2 id="sectionTitle">Explore</h2>
-      <p id="sectionSubtitle">Drift through your universe</p>
+  <main class="shell">
+    <section class="library panel">
+      <div class="section-title">
+        <h2>Queue</h2>
+        <p id="countLabel">0 tracks</p>
+      </div>
+
+      <div class="filters">
+        <label>Era
+          <select id="eraFilter"><option value="">All eras</option></select>
+        </label>
+        <label>Category
+          <select id="categoryFilter"><option value="">All categories</option></select>
+        </label>
+        <button id="clearFilters" class="btn ghost" type="button">Clear</button>
+      </div>
+
+      <div id="trackList" class="track-list" aria-live="polite"></div>
     </section>
 
-    <section id="carousel" class="carousel" aria-live="polite"></section>
+    <section id="playerPanel" class="player panel" aria-label="Now playing">
+      <img id="cover" class="cover" alt="Album cover" loading="lazy" />
+      <div class="meta">
+        <h3 id="title">Pick a song</h3>
+        <p id="artist">Tap any track to start</p>
+      </div>
 
-    <section id="swipeMode" class="swipe-mode hidden" aria-label="Swipe songs">
-      <article id="swipeCard" class="swipe-card">
-        <img id="swipeCover" alt="Swipe cover" loading="lazy" />
-        <div class="swipe-meta">
-          <h3 id="swipeTitle"></h3>
-          <p id="swipeArtist"></p>
-        </div>
-      </article>
-      <div class="swipe-actions">
-        <button id="swipeNo" class="glass-btn">Skip</button>
-        <button id="swipeYes" class="glass-btn">Queue</button>
+      <div class="seek-wrap">
+        <input id="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek" />
+        <div class="times"><span id="currentTime">0:00</span><span id="duration">0:00</span></div>
       </div>
-      <div class="preview-controls glass">
-        <label for="previewSeek">Preview</label>
-        <input id="previewSeek" type="range" min="0" max="100" value="0" />
-        <p id="previewTime">0:45 / --:--</p>
-      </div>
-    </section>
 
-    <section id="constellation" class="constellation glass hidden"></section>
+      <div class="controls" role="group" aria-label="Playback controls">
+        <button id="prevBtn" class="icon-btn" type="button" aria-label="Previous track">⏮</button>
+        <button id="playBtn" class="icon-btn play" type="button" aria-label="Play or pause">▶</button>
+        <button id="nextBtn" class="icon-btn" type="button" aria-label="Next track">⏭</button>
+      </div>
 
-    <section id="nowPlaying" class="now-playing hidden" aria-label="Now playing">
-      <div id="playerGlow" class="player-glow"></div>
-      <img id="playerCover" class="player-cover" alt="Album cover" loading="lazy" />
-      <div class="player-meta">
-        <h3 id="playerTitle"></h3>
-        <p id="playerArtist"></p>
+      <div class="extras">
+        <button id="likeBtn" class="btn" type="button">♡ Like</button>
+        <button id="shuffleBtn" class="btn ghost" type="button">Shuffle queue</button>
       </div>
-      <div class="player-actions">
-        <button id="prevTrack" class="glass-btn" aria-label="Previous track">Prev</button>
-        <button id="playPause" class="glass-btn" aria-label="Play or pause">Play</button>
-        <button id="nextTrack" class="glass-btn" aria-label="Next track">Next</button>
-        <button id="likeTrack" class="glass-btn" aria-label="Like track">Like</button>
-        <button id="closePlayer" class="glass-btn" aria-label="Close player">Close</button>
-      </div>
-      <audio id="audioEl" preload="none" crossorigin="anonymous"></audio>
-      <div id="lyrics" class="lyrics"></div>
+
+      <audio id="audio" preload="none" crossorigin="anonymous"></audio>
     </section>
   </main>
 
-  <aside id="profileSheet" class="sheet hidden" aria-label="Profile setup">
-    <div class="sheet-card glass">
-      <h3>Start your WRLD</h3>
-      <p class="helper">No email. Just a name.</p>
-      <label>Name<input id="profileName" maxlength="24" placeholder="Enter a display name" /></label>
-      <button id="saveProfile" class="glass-btn">Enter Galaxy</button>
+  <aside id="lyricsSheet" class="lyrics-sheet hidden" aria-label="Lyrics view">
+    <div class="lyrics-panel panel">
+      <div class="lyrics-head">
+        <h3>Lyrics</h3>
+        <button id="closeLyrics" class="btn ghost" type="button">Close</button>
+      </div>
+      <p id="lyricsTrack" class="lyrics-track"></p>
+      <div id="lyricsLines" class="lyrics-lines"></div>
     </div>
   </aside>
 
-  <aside id="filterSheet" class="sheet hidden" aria-label="Filters">
-    <div class="sheet-card glass">
-      <h3>Tune the universe</h3>
-      <label>Mood<select id="moodFilter"><option value="">Any</option><option>Melancholy</option><option>Hype</option><option>Dreamy</option></select></label>
-      <label>Era<select id="eraFilter"><option value="">Any</option></select></label>
-      <label>Category<select id="categoryFilter"><option value="">Any</option></select></label>
-      <button id="applyFilters" class="glass-btn">Apply</button>
-    </div>
-  </aside>
-
-  <aside id="settingsSheet" class="sheet hidden" aria-label="Settings">
-    <div class="sheet-card glass">
-      <h3>Settings</h3>
-      <label><input id="showLyrics" type="checkbox" checked /> Show lyrics automatically</label>
-      <label><input id="motionBoost" type="checkbox" checked /> Cinematic motion</label>
-      <button id="resetProfile" class="glass-btn">Change profile name</button>
-      <button id="clearState" class="glass-btn">Reset likes/playlists</button>
-    </div>
-  </aside>
-
-  <nav class="bottom-nav glass" aria-label="Main">
-    <button data-section="songs" class="active">Songs</button>
-    <button data-section="albums">Albums</button>
-    <button data-section="playlists">Playlists</button>
-    <button data-section="swipe">Swipe</button>
-    <button data-section="radio">Radio</button>
-    <button data-section="likes">Likes</button>
-  </nav>
+  <div id="leftTap" class="edge-tap left" title="Previous track" aria-hidden="true"></div>
+  <div id="rightTap" class="edge-tap right" title="Next track" aria-hidden="true"></div>
 </body>
 </html>
