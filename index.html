@@ -18,8 +18,9 @@
   <div class="ambient" aria-hidden="true"></div>
 
   <header class="topbar panel">
-    <div>
-      <h1>WRLD</h1>
+    <div class="brand-wrap">
+      <p class="brand-kicker">JUICE WRLD</p>
+      <h1 class="brand-logo">WRLD</h1>
       <p id="subtitle">Songs</p>
     </div>
     <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
@@ -33,6 +34,15 @@
       </div>
 
       <div class="filters">
+        <label>Search
+          <input id="searchInput" type="search" placeholder="Find songs, artists, lyrics..." />
+        </label>
+        <label>Category
+          <select id="categoryFilter"><option value="">All categories</option></select>
+        </label>
+        <label>Era
+          <select id="eraFilter"><option value="">All eras</option></select>
+        </label>
         <label>Album
           <select id="albumFilter"><option value="">All albums</option></select>
         </label>
@@ -40,8 +50,11 @@
 
       <div id="trackList" class="track-list" aria-live="polite"></div>
     </section>
+  </main>
 
+  <div id="playerOverlay" class="overlay" aria-hidden="true">
     <section id="playerPanel" class="player panel" aria-label="Now playing">
+      <button id="closePlayerBtn" class="close-btn" type="button" aria-label="Close player">✕</button>
       <img id="cover" class="cover" alt="Album cover" loading="lazy" />
       <div class="meta">
         <h3 id="title">Pick a song</h3>
@@ -61,9 +74,18 @@
         <button id="likeBtn" class="icon-btn subtle" type="button" aria-label="Like track">♡</button>
       </div>
 
+      <button id="lyricsBtn" class="btn lyrics hidden" type="button">Lyrics</button>
       <audio id="audio" preload="none" crossorigin="anonymous"></audio>
     </section>
-  </main>
+  </div>
+
+  <div id="lyricsOverlay" class="overlay" aria-hidden="true">
+    <section class="lyrics-modal panel">
+      <button id="closeLyricsBtn" class="close-btn" type="button" aria-label="Close lyrics">✕</button>
+      <h3 id="lyricsTitle">Lyrics</h3>
+      <pre id="lyricsText">No lyrics available.</pre>
+    </section>
+  </div>
 
   <nav class="bottom-nav panel" aria-label="Sections">
     <button class="nav-btn active" data-view="songs" type="button">Songs</button>
